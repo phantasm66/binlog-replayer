@@ -9,7 +9,7 @@ Usage
 
 Summary
 -------
-I wrote this during an emergency and with complete amazement that no such tool existed. I tried yelp's 'ybinlogp' tool written in python but kept getting shared object errors during make. This tool has a very specific purpose, to parse and replay events from a row format mysql binlog back into a running mysql instance. It should work for any MySQL versions 5.1 and above, but it has only been tested on MySQL 5.6.
+I wrote this during an emergency and with complete amazement that no such tool existed. I tried the Yelp! [ybinlogp](https://github.com/Yelp/ybinlogp) tool but was unable to get it to make successfully. This tool has a very specific purpose, to parse and replay events from a row format mysql binlog back into a running mysql instance. It should work for any MySQL versions 5.1 and above, but it has only been tested on MySQL 5.6.
 
 This tool can replay all binlog row events matching any combination of the following:
 
