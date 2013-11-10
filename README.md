@@ -28,7 +28,7 @@ This tool can replay all binlog row events matching any combination of the follo
 
 Caveats & Disclaimer
 --------------------
-If you attempt to replay enormous singular row based events, you *will* crash the mysql instance you are replaying into. This was designed specifically for use with row format mysql binlogs. It will *not* work for statement format binlogs. It *might* work for mixed format binlogs. If you do attempt to use it for replaying a mixed format binlog please keep in mind that it will not replay RENAME or DELETE operations (i have not yet figured out why).
+If you attempt to replay enormous singular row based events, you *will* crash the mysql instance you are replaying into. This was designed specifically for use with row format mysql binlogs. It will *not* work for statement format binlogs. It *might* work for mixed format binlogs. If you do attempt to use it for replaying a mixed format binlog please keep in mind that it will not replay RENAME or DELETE events (i have not yet figured out why).
 
 If you do not specify a --start time argument, the entire binlog will be parsed. Please also keep in mind that parsing and replaying binlogs back into a running mysql instance will take some time. Replaying an entire 1GB binlog back into a running MySQL 5.6 instance took ~45 minutes. If you are replaying back into an instance that is also handling regular requests, then it will likely take much longer.
 
