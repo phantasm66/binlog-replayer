@@ -22,15 +22,15 @@ I wrote this during an emergency and with complete amazement that no such tool e
 
 This tool can replay all binlog row events matching any combination of the following:
 
-    a single table or list of tables
-    a single database
-    a specific time frame (within 1 second) of events that exist within a binlog
+    * single table or list of tables
+    * single database
+    * specific time frame of events (assuming they exist within that binlog)
 
 Caveats & Disclaimer
 --------------------
 If you attempt to replay enormous singular row based events, you *will* crash the mysql instance you are replaying into. This was designed specifically for use with row format mysql binlogs. It will *not* work for statement format binlogs. It *might* work for mixed format binlogs. If you do attempt to use it for replaying a mixed format binlog please keep in mind that it will not replay RENAME or DELETE events (i have not yet figured out why).
 
-If you do not specify a --start time argument, the entire binlog will be parsed. Please also keep in mind that parsing and replaying binlogs back into a running mysql instance will take some time. Replaying an entire 1GB binlog back into a running MySQL 5.6 instance took ~45 minutes. If you are replaying back into an instance that is also handling regular requests, then it will likely take much longer.
+If you do not specify a --start time argument, the entire binlog will be parsed. Replaying an entire 1GB binlog back into a bored MySQL 5.6 instance takes ~10 minutes. However, if you plan to replay into a MySQL instance that also handles regular requests, it will likely take a bit longer.
 
 I am not a DBA and have very limited knowledge on the formats and internals of MySQL. It is highly probable that this tool will be completely useless to anyone other than myself.
 
