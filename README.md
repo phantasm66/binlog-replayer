@@ -7,6 +7,15 @@ Usage
 -----
     ruby binlog_replayer [OPTIONS]
 
+    Options:
+
+        --binlog        path to locally stored mysql binlog (required)
+        --database      database to replay tables for
+        --tables        comma delimited list (no spaces) of tables to replay (required)
+        --password      local mysql server root password (required)
+        --start         start time of events to replay (quoted format: 'YYYY-MM-dd HH:mm:ss')
+        --stop          stop time of events to replay (quoted format: 'YYYY-MM-dd HH:mm:ss')
+
 Summary
 -------
 I wrote this during an emergency and with complete amazement that no such tool existed. I tried the Yelp! [ybinlogp](https://github.com/Yelp/ybinlogp) tool but was unable to get it to make successfully. This tool has a very specific purpose, to parse and replay events from a row format mysql binlog back into a running mysql instance. It should work for any MySQL versions 5.1 and above, but it has only been tested on MySQL 5.6.
