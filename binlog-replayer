@@ -143,7 +143,7 @@ positions_array.each do |position|
   success_total += 1
 end
 
-[capture_file, options_file].each{|file| File.delete(file)}
+[capture_file, options_file].each {|file| File.delete(file)}
 
 puts '[INFO] replay complete'
 sleep 2
@@ -153,6 +153,6 @@ sleep 2
 unless failures.empty?
   puts '[ERROR] the following errors were encountered during replay'
   puts '***********************************************************'
-  failures.each{|failure| puts failure}
+  failures.each {|failure| puts failure}
 end
 
