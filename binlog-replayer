@@ -1,0 +1,158 @@
+#!/usr/bin/env ruby
+
+%x{gem which slop &> /dev/null}
+
+unless $?.exitstatus == 0
+  puts "please run 'gem install slop' and try again..."
+  exit 1
+end
+
+require 'slop'
+
+opts = Slop.new(:strict => true) do
+  banner "
+    ruby binlog_replayer [OPTIONS]
+
+    replaying enormous row based binlog events will most likely crash mysql
+
+    this binlog replayer was designed for use with ROW format binlogs (RBR)
+
+      * it will not work for STATEMENT format binlogs
+      * it might work for MIXED format binlogs (not RENAME, DELETE, etc)
+
+    the entire binlog will be parsed unless you use a --start time argument
+    replaying binlogs into a running mysql instance will take quite a while
+    "
+
+  on :binlog=, 'path to locally stored mysql binlog (required)', :required => true
+  on :database=, 'database to replay tables for'
+  on :tables=, 'comma delimited list (no spaces) of tables to replay (required)',
+     :required => true, as: Array
+  on :password=, 'local mysql server root password (required)', :required => true
+  on :start=, "start time of events to replay (quoted format: 'YYYY-MM-dd HH:mm:ss')"
+  on :stop=, "stop time of events to replay (quoted format: 'YYYY-MM-dd HH:mm:ss')
+  "
+end
+
+begin
+  opts.parse
+rescue Slop::MissingOptionError, Slop::InvalidOptionError
+  puts opts.help
+  exit
+end
+
+def set_position(binlog, timestamp)
+  binlog_pattern = ''
+
+  loop do
+    binlog_pattern = %x{mysqlbinlog #{binlog} | grep -m 1 '##{timestamp}'}
+    break unless binlog_pattern.empty?
+    timestamp.chop!
+  end
+
+  return binlog_pattern.split[0..1].join(' ')
+end
+
+pattern = "`(#{opts[:tables].join('|')})`"
+pattern = "`#{opts[:database]}`.#{pattern}" unless opts[:database].nil?
+
+puts '[INFO] collecting requested binlog event offset positions'
+
+if ! opts[:start].nil?
+  if opts[:start].match(/\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/)
+    head_timestamp =  %x{mysqlbinlog #{opts[:binlog]} | grep 'TIMESTAMP' | head -1}
+    provided_start_time = Time.local(opts[:start].split(/[-\s:]/).join(',')).to_i
+
+    binlog_start = head_timestamp.match(/=(.*)\/\*/)[1].to_i
+    binlog_stop = File.mtime(opts[:binlog]).to_i
+
+    unless provided_start_time.between?(binlog_start, binlog_stop)
+      puts "[ERROR] you provided a --start time that is outside the time frame covered in #{opts[:binlog]}"
+      exit 1
+    end
+
+    provided_start = "##{opts[:start].gsub('-', '')[2..-1]}"
+    start = set_position(opts[:binlog], provided_start)
+
+    if ! opts[:stop].nil?
+      if opts[:stop].match(/\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/)
+        provided_stop = "##{opts[:stop].gsub('-', '')[2..-1]}"
+        stop = set_position(opts[:binlog], provided_stop)
+      else
+        puts '[ERROR] your --stop time is invalid (see --help)'
+        exit 1
+      end
+    else
+      stop = '# End of log file'
+    end
+
+    events = %x{
+      mysqlbinlog #{opts[:binlog]} |
+      sed -n '/#{start}/,/#{stop}/p' |
+      egrep -A2 '#{pattern}' |
+      egrep -v '#{pattern}'
+    }
+
+  else
+    puts '[ERROR] your --stop time is invalid (see --help)'
+    exit 1
+  end
+else
+  events = %x{
+    mysqlbinlog #{opts[:binlog]} |
+    egrep -A2 '#{pattern}' |
+    egrep -v '#{pattern}'
+  }
+end
+
+positions = events.gsub("\n#", ' ').split("\n")
+
+puts '[INFO] done...'
+sleep 2
+
+positions_array = []
+positions.each do |position|
+  positions_array << {
+    :start_pos => position.split[2],
+    :stop_pos  => position.split[9]
+  }
+end
+
+puts '[INFO] replaying collected binlog events'
+
+capture_file = '/tmp/replay.out'
+options_file = '/tmp/mysql_options_file'
+client_options = "[client]\nuser = root\npassword = #{opts[:password]}"
+
+File.open(options_file, 'w') {|f| f.write(client_options)}
+File.chmod(0600, options_file)
+
+success_total, failures = [0, []]
+positions_array.each do |position|
+  start = "--start-position=#{position[:start_pos]}"
+  stop = "--stop-position=#{position[:stop_pos]}"
+  mysql_client = "mysql --defaults-file=#{options_file} --binary-mode --force"
+
+  %x{mysqlbinlog #{start} #{stop} #{opts[:binlog]} | #{mysql_client} &> #{capture_file}}
+
+  unless $?.exitstatus == 0
+    failures << IO.read(capture_file)
+    next
+  end
+
+  success_total += 1
+end
+
+[capture_file, options_file].each{|file| File.delete(file)}
+
+puts '[INFO] replay complete'
+sleep 2
+puts "[INFO] there were #{success_total} successful replays from #{positions_array.count} total events"
+sleep 2
+
+unless failures.empty?
+  puts '[ERROR] the following errors were encountered during replay'
+  puts '***********************************************************'
+  failures.each{|failure| puts failure}
+end
+
